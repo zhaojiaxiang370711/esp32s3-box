@@ -98,7 +98,7 @@ LcdDisplay::LcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_
 
 SpiLcdDisplay::SpiLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel,
                              int width, int height, int offset_x, int offset_y, bool mirror_x,
-                             bool mirror_y, bool swap_xy)
+                             bool mirror_y, bool swap_xy, int buffer_rows, bool double_buffer)
     : LcdDisplay(panel_io, panel, width, height) {
     // draw white
     std::vector<uint16_t> buffer(width_, 0xFFFF);
@@ -145,8 +145,8 @@ SpiLcdDisplay::SpiLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_h
         .io_handle = panel_io_,
         .panel_handle = panel_,
         .control_handle = nullptr,
-        .buffer_size = static_cast<uint32_t>(width_ * 20),
-        .double_buffer = false,
+        .buffer_size = static_cast<uint32_t>(width_ * std::clamp(buffer_rows, 1, height_)),
+        .double_buffer = double_buffer,
         .trans_size = 0,
         .hres = static_cast<uint32_t>(width_),
         .vres = static_cast<uint32_t>(height_),

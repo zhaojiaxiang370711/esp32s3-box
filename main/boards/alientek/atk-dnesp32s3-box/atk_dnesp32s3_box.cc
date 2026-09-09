@@ -285,7 +285,7 @@ private:
 
         display_ = new BoxMenuDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT,
                                       DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X,
-                                      DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
+                                      DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY, 32, true);
     }
 
     void PollNavigationButtons() {

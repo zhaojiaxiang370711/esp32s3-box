@@ -57,7 +57,6 @@ private:
     lv_obj_t* CreateCard();
     void Transition(int direction);
     static void SetX(void* object, int32_t value);
-    static void SetOpacity(void* object, int32_t value);
     static void FinishTransition(lv_anim_t* animation);
     void Render();  // Caller holds the display lock.
 };

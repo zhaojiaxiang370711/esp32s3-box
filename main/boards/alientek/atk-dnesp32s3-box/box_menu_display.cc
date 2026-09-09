@@ -10,6 +10,49 @@ LV_FONT_DECLARE(box_menu_font_14);
 namespace {
 constexpr int kCardX = 16;
 constexpr uint32_t kAccent[] = {0x007AFF, 0x34A56F, 0xAF52DE, 0xE58A22, 0x269EA8};
+// Small native primitives retain crisp edges without enlarging raster artwork.
+void IconShape(lv_obj_t* parent, int x, int y, int width, int height, int radius = 2,
+               bool outline = false) {
+    auto shape = lv_obj_create(parent);
+    lv_obj_remove_style_all(shape);
+    lv_obj_set_pos(shape, x, y);
+    lv_obj_set_size(shape, width, height);
+    lv_obj_set_style_radius(shape, radius, 0);
+    lv_obj_remove_flag(shape, LV_OBJ_FLAG_SCROLLABLE);
+    if (outline) {
+        lv_obj_set_style_border_width(shape, 2, 0);
+        lv_obj_set_style_border_color(shape, lv_color_white(), 0);
+    } else {
+        lv_obj_set_style_bg_color(shape, lv_color_white(), 0);
+        lv_obj_set_style_bg_opa(shape, LV_OPA_COVER, 0);
+    }
+}
+void DrawIcon(lv_obj_t* parent, int page) {
+    if (page == 0) {
+        for (int y : {11, 24})
+            for (int x : {11, 24})
+                IconShape(parent, x, y, 9, 9, 3);
+    } else if (page == 1) {
+        IconShape(parent, 11, 22, 4, 11);
+        IconShape(parent, 20, 11, 4, 22);
+        IconShape(parent, 29, 16, 4, 17);
+    } else if (page == 2) {
+        IconShape(parent, 10, 10, 24, 24, 12, true);
+        IconShape(parent, 20, 15, 2, 9, 0);
+        IconShape(parent, 20, 22, 8, 2, 0);
+    } else if (page == 3) {
+        IconShape(parent, 12, 9, 20, 26, 3, true);
+        IconShape(parent, 17, 16, 10, 2, 1);
+        IconShape(parent, 17, 22, 10, 2, 1);
+        IconShape(parent, 17, 28, 6, 2, 1);
+    } else {
+        for (int i = 0; i < 3; ++i) {
+            IconShape(parent, 10, 12 + i * 9, 24, 2, 1);
+            IconShape(parent, i == 1 ? 25 : 14, 10 + i * 9, 5, 6, 2);
+        }
+    }
+}
+
 void Animate(lv_obj_t* object, lv_anim_exec_xcb_t callback, int from, int to, void* owner = nullptr,
              lv_anim_completed_cb_t completed = nullptr) {
     lv_anim_t a;
@@ -59,7 +102,7 @@ void BoxMenuDisplay::SetupUI() {
     counter_ = Label(root_, 248, 18, 52, "1 / 5");
     lv_obj_set_style_text_font(counter_, &box_menu_font_14, 0);
     lv_obj_set_style_text_align(counter_, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_obj_set_style_text_color(counter_, lv_color_hex(0x86868B), 0);
+    lv_obj_set_style_text_color(counter_, lv_color_hex(0x636366), 0);
     for (int i = 0; i < box_menu::State::kPageCount; ++i) {
         dots_[i] = lv_obj_create(root_);
         lv_obj_remove_style_all(dots_[i]);
@@ -75,7 +118,7 @@ void BoxMenuDisplay::SetupUI() {
     help_ = Label(root_, 8, 214, 304, "长按 K2 返回   ·   长按 K1 进入");
     lv_obj_set_style_text_font(help_, &box_menu_font_14, 0);
     lv_obj_set_style_text_align(help_, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_style_text_color(help_, lv_color_hex(0x86868B), 0);
+    lv_obj_set_style_text_color(help_, lv_color_hex(0x636366), 0);
     card_ = CreateCard();
     dimmer_ = lv_obj_create(lv_display_get_layer_top(display_));
     lv_obj_remove_style_all(dimmer_);
@@ -95,9 +138,11 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
     lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(card, 20, 0);
     lv_obj_set_style_shadow_color(card, lv_color_hex(0x202040), 0);
-    lv_obj_set_style_shadow_opa(card, 12, 0);
-    lv_obj_set_style_shadow_width(card, 10, 0);
-    lv_obj_set_style_shadow_offset_y(card, 3, 0);
+    lv_obj_set_style_shadow_opa(card, 8, 0);
+    lv_obj_set_style_shadow_width(card, 4, 0);
+    lv_obj_set_style_border_width(card, 1, 0);
+    lv_obj_set_style_border_color(card, lv_color_hex(0xE5E5EA), 0);
+    lv_obj_set_style_shadow_offset_y(card, 2, 0);
     lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
     if (menu_.wifi_setup) {
         auto hint = Label(card, 16, 8, 256, "手机连接设备热点");
@@ -166,10 +211,7 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
     lv_obj_set_style_bg_color(icon, lv_color_hex(kAccent[menu_.selected]), 0);
     lv_obj_set_style_bg_opa(icon, LV_OPA_COVER, 0);
     char text[48];
-    std::snprintf(text, sizeof(text), "%02d", menu_.selected + 1);
-    auto number = Label(icon, 0, 10, 44, text);
-    lv_obj_set_style_text_align(number, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_style_text_color(number, lv_color_white(), 0);
+    DrawIcon(icon, menu_.selected);
     if (menu_.selected == menu_.kPageCount - 1)
         std::snprintf(text, sizeof(text), "设置");
     else
@@ -180,14 +222,19 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
                               ? "显示、声音与无线网络"
                               : (menu_.entered ? "已进入测试页面" : "探索你的新功能"));
     lv_obj_set_style_text_font(subtitle, &box_menu_font_14, 0);
-    lv_obj_set_style_text_color(subtitle, lv_color_hex(0x86868B), 0);
+    lv_obj_set_style_text_color(subtitle, lv_color_hex(0x636366), 0);
     auto detail =
         Label(card, 18, 88, 252, menu_.entered ? "功能待开发，长按 K2 返回" : "长按 K1 打开");
     lv_obj_set_style_text_font(detail, &box_menu_font_14, 0);
-    lv_obj_set_style_text_color(detail, lv_color_hex(menu_.entered ? 0x86868B : 0x007AFF), 0);
+    lv_obj_set_style_text_color(detail, lv_color_hex(menu_.entered ? 0x636366 : 0x007AFF), 0);
     if (!menu_.entered) {
-        auto chevron = Label(card, 252, 86, 18, ">");
-        lv_obj_set_style_text_color(chevron, lv_color_hex(0x007AFF), 0);
+        static const lv_point_precise_t points[] = {{0, 0}, {6, 6}, {0, 12}};
+        auto chevron = lv_line_create(card);
+        lv_line_set_points(chevron, points, 3);
+        lv_obj_set_pos(chevron, 258, 91);
+        lv_obj_set_style_line_width(chevron, 2, 0);
+        lv_obj_set_style_line_rounded(chevron, true, 0);
+        lv_obj_set_style_line_color(chevron, lv_color_hex(0x007AFF), 0);
     }
     return card;
 }
@@ -225,9 +272,6 @@ void BoxMenuDisplay::Render() {
 void BoxMenuDisplay::SetX(void* object, int32_t value) {
     lv_obj_set_x(static_cast<lv_obj_t*>(object), value);
 }
-void BoxMenuDisplay::SetOpacity(void* object, int32_t value) {
-    lv_obj_set_style_opa(static_cast<lv_obj_t*>(object), value, 0);
-}
 void BoxMenuDisplay::FinishTransition(lv_anim_t* animation) {
     auto self = static_cast<BoxMenuDisplay*>(lv_anim_get_user_data(animation));
     auto old = static_cast<lv_obj_t*>(animation->var);
@@ -244,13 +288,11 @@ void BoxMenuDisplay::Transition(int direction) {
     }
     lv_anim_delete(card_, nullptr);
     lv_obj_set_pos(card_, kCardX, 48);
-    lv_obj_set_style_opa(card_, LV_OPA_COVER, 0);
     outgoing_ = card_;
     card_ = CreateCard();
-    Animate(outgoing_, SetOpacity, LV_OPA_COVER, LV_OPA_TRANSP);
-    Animate(outgoing_, SetX, kCardX, kCardX - direction * 52, this, FinishTransition);
-    Animate(card_, SetX, kCardX + direction * 80, kCardX);
-    Animate(card_, SetOpacity, LV_OPA_TRANSP, LV_OPA_COVER);
+    // Native pixel translation keeps text sharp and avoids full-card alpha layers.
+    Animate(outgoing_, SetX, kCardX, kCardX - direction * width_, this, FinishTransition);
+    Animate(card_, SetX, kCardX + direction * width_, kCardX);
 }
 void BoxMenuDisplay::ApplyBrightness() {
     // XL9555 LCD_BL is a binary output. Dim pixels without toggling the I2C backlight.
