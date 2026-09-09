@@ -63,3 +63,16 @@ idf.py -p YOUR_SERIAL_PORT flash
 - NAS Gitea：私有备份仓库，仅授权用户可访问。
 
 公开仓库采用当前精简代码快照作为初始提交，完整上游历史见原项目。
+
+## 界面字体
+
+BOX 菜单使用独立的 Noto Sans CJK SC 字体子集（14px、20px），覆盖全部界面文案和可打印 ASCII。原项目 basic 字库不包含部分自定义菜单用字，不可直接用于新增文案。字体按 SIL OFL 1.1 授权，详见板级目录 `BOX-FONT-LICENSE.txt`。
+
+修改中文文案后，用 FontTools、NotoSansCJK-Regular.ttc 与 `lv_font_conv@1.5.3` 重新生成：
+
+```bash
+python scripts/generate_box_fonts.py --font /path/to/NotoSansCJK-Regular.ttc --converter /path/to/lv_font_conv
+python3 -m unittest discover -s scripts/tests -v
+```
+
+生成的 `box_menu_font_14.c`、`box_menu_font_20.c` 需要一同提交。58 项主机测试包含字库覆盖与设置页行高检查，避免出现缺字和底部文字越界。

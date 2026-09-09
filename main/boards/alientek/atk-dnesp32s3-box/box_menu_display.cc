@@ -5,8 +5,8 @@
 #include "audio_codec.h"
 #include "board.h"
 #include "settings.h"
-LV_FONT_DECLARE(BUILTIN_TEXT_FONT);
-LV_FONT_DECLARE(font_noto_sans_basic_14_1);
+LV_FONT_DECLARE(box_menu_font_20);
+LV_FONT_DECLARE(box_menu_font_14);
 namespace {
 constexpr int kCardX = 16;
 constexpr uint32_t kAccent[] = {0x007AFF, 0x34A56F, 0xAF52DE, 0xE58A22, 0x269EA8};
@@ -46,11 +46,11 @@ void BoxMenuDisplay::SetupUI() {
     lv_obj_set_style_bg_color(root_, lv_color_hex(0xF2F2F7), 0);
     lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(root_, lv_color_hex(0x1D1D1F), 0);
-    lv_obj_set_style_text_font(root_, &BUILTIN_TEXT_FONT, 0);
+    lv_obj_set_style_text_font(root_, &box_menu_font_20, 0);
     lv_obj_remove_flag(root_, LV_OBJ_FLAG_SCROLLABLE);
     header_ = Label(root_, 20, 12, 220, "主功能");
     counter_ = Label(root_, 248, 18, 52, "1 / 5");
-    lv_obj_set_style_text_font(counter_, &font_noto_sans_basic_14_1, 0);
+    lv_obj_set_style_text_font(counter_, &box_menu_font_14, 0);
     lv_obj_set_style_text_align(counter_, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_set_style_text_color(counter_, lv_color_hex(0x86868B), 0);
     for (int i = 0; i < box_menu::State::kPageCount; ++i) {
@@ -61,12 +61,12 @@ void BoxMenuDisplay::SetupUI() {
         lv_obj_set_style_radius(dots_[i], LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_bg_opa(dots_[i], LV_OPA_COVER, 0);
     }
-    navigation_ = Label(root_, 16, 198, 288, "");
-    lv_obj_set_style_text_font(navigation_, &font_noto_sans_basic_14_1, 0);
+    navigation_ = Label(root_, 16, 190, 288, "");
+    lv_obj_set_style_text_font(navigation_, &box_menu_font_14, 0);
     lv_obj_set_style_text_color(navigation_, lv_color_hex(0x007AFF), 0);
     lv_obj_set_style_text_align(navigation_, LV_TEXT_ALIGN_CENTER, 0);
-    help_ = Label(root_, 8, 219, 304, "长按 K2 返回   ·   长按 K1 进入");
-    lv_obj_set_style_text_font(help_, &font_noto_sans_basic_14_1, 0);
+    help_ = Label(root_, 8, 214, 304, "长按 K2 返回   ·   长按 K1 进入");
+    lv_obj_set_style_text_font(help_, &box_menu_font_14, 0);
     lv_obj_set_style_text_align(help_, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_color(help_, lv_color_hex(0x86868B), 0);
     card_ = CreateCard();
@@ -103,7 +103,7 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
             lv_obj_set_style_border_width(rows_[i], 1, 0);
             Label(rows_[i], 10, 4, 160, i == 0 ? "屏幕亮度" : "声音大小");
             values_[i] = Label(rows_[i], 192, 8, 68, "");
-            lv_obj_set_style_text_font(values_[i], &font_noto_sans_basic_14_1, 0);
+            lv_obj_set_style_text_font(values_[i], &box_menu_font_14, 0);
             lv_obj_set_style_text_align(values_[i], LV_TEXT_ALIGN_RIGHT, 0);
             bars_[i] = lv_bar_create(rows_[i]);
             lv_obj_set_pos(bars_[i], 12, 37);
@@ -137,11 +137,11 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
                           menu_.selected == menu_.kPageCount - 1
                               ? "屏幕亮度与声音大小"
                               : (menu_.entered ? "已进入测试页面" : "探索你的新功能"));
-    lv_obj_set_style_text_font(subtitle, &font_noto_sans_basic_14_1, 0);
+    lv_obj_set_style_text_font(subtitle, &box_menu_font_14, 0);
     lv_obj_set_style_text_color(subtitle, lv_color_hex(0x86868B), 0);
     auto detail =
         Label(card, 18, 88, 252, menu_.entered ? "功能待开发，长按 K2 返回" : "长按 K1 打开");
-    lv_obj_set_style_text_font(detail, &font_noto_sans_basic_14_1, 0);
+    lv_obj_set_style_text_font(detail, &box_menu_font_14, 0);
     lv_obj_set_style_text_color(detail, lv_color_hex(menu_.entered ? 0x86868B : 0x007AFF), 0);
     if (!menu_.entered) {
         auto chevron = Label(card, 252, 86, 18, ">");
