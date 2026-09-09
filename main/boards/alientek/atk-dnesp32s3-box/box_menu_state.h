@@ -53,6 +53,7 @@ struct State {
     static constexpr int kSettingCount = 3;
     int brightness = 100;
     int volume = 70;
+    bool IsMusic() const { return entered && selected == 0; }
     bool IsSettings() const { return entered && selected == kPageCount - 1; }
     void Load(int light, int sound) {
         brightness = std::clamp(light, 10, 100);

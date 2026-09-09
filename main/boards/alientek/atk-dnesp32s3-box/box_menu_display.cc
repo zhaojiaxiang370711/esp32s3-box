@@ -29,9 +29,11 @@ void IconShape(lv_obj_t* parent, int x, int y, int width, int height, int radius
 }
 void DrawIcon(lv_obj_t* parent, int page) {
     if (page == 0) {
-        for (int y : {11, 24})
-            for (int x : {11, 24})
-                IconShape(parent, x, y, 9, 9, 3);
+        IconShape(parent, 16, 10, 2, 21, 1);
+        IconShape(parent, 30, 8, 2, 20, 1);
+        IconShape(parent, 16, 8, 16, 3, 1);
+        IconShape(parent, 9, 27, 9, 7, 4);
+        IconShape(parent, 23, 24, 9, 7, 4);
     } else if (page == 1) {
         IconShape(parent, 11, 22, 4, 11);
         IconShape(parent, 20, 11, 4, 22);
@@ -144,6 +146,24 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
     lv_obj_set_style_border_color(card, lv_color_hex(0xE5E5EA), 0);
     lv_obj_set_style_shadow_offset_y(card, 2, 0);
     lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+    if (menu_.IsMusic()) {
+        music_title_ = Label(card, 16, 12, 256, "");
+        lv_label_set_long_mode(music_title_, LV_LABEL_LONG_SCROLL_CIRCULAR);
+        music_artist_ = Label(card, 16, 42, 256, "");
+        lv_obj_set_style_text_font(music_artist_, &box_menu_font_14, 0);
+        lv_obj_set_style_text_color(music_artist_, lv_color_hex(0x636366), 0);
+        lv_label_set_long_mode(music_artist_, LV_LABEL_LONG_SCROLL_CIRCULAR);
+        music_bar_ = lv_bar_create(card);
+        lv_obj_set_pos(music_bar_, 16, 76);
+        lv_obj_set_size(music_bar_, 256, 5);
+        lv_bar_set_range(music_bar_, 0, 1000);
+        lv_obj_set_style_bg_color(music_bar_, lv_color_hex(0xE5E5EA), LV_PART_MAIN);
+        lv_obj_set_style_bg_color(music_bar_, lv_color_hex(0x007AFF), LV_PART_INDICATOR);
+        music_time_ = Label(card, 16, 91, 256, "");
+        lv_obj_set_style_text_font(music_time_, &box_menu_font_14, 0);
+        UpdateMusic();
+        return card;
+    }
     if (menu_.wifi_setup) {
         auto hint = Label(card, 16, 8, 256, "手机连接设备热点");
         lv_obj_set_style_text_font(hint, &box_menu_font_14, 0);
@@ -214,13 +234,17 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
     DrawIcon(icon, menu_.selected);
     if (menu_.selected == menu_.kPageCount - 1)
         std::snprintf(text, sizeof(text), "设置");
+    else if (menu_.selected == 0)
+        std::snprintf(text, sizeof(text), "音乐");
     else
         std::snprintf(text, sizeof(text), "测试功能 %d", menu_.selected + 1);
     Label(card, 76, 18, 194, text);
-    auto subtitle = Label(card, 76, 47, 194,
-                          menu_.selected == menu_.kPageCount - 1
-                              ? "显示、声音与无线网络"
-                              : (menu_.entered ? "已进入测试页面" : "探索你的新功能"));
+    auto subtitle =
+        Label(card, 76, 47, 194,
+              menu_.selected == menu_.kPageCount - 1
+                  ? "显示、声音与无线网络"
+                  : (menu_.selected == 0 ? "三首离线音乐"
+                                         : (menu_.entered ? "已进入测试页面" : "探索你的新功能")));
     lv_obj_set_style_text_font(subtitle, &box_menu_font_14, 0);
     lv_obj_set_style_text_color(subtitle, lv_color_hex(0x636366), 0);
     auto detail =
@@ -264,6 +288,14 @@ void BoxMenuDisplay::Render() {
         lv_label_set_text(help_, "长按 K1 确认   ·   长按 K2 返回");
     } else if (menu_.IsSettings() && menu_.setting == 2) {
         lv_label_set_text(help_, "长按 K1 查看   ·   长按 K2 返回");
+    }
+    if (menu_.IsMusic()) {
+        lv_label_set_text(header_, music_playing_ ? "正在播放" : "音乐");
+        snprintf(text, sizeof(text), "%d / 3", music_track_ + 1);
+        lv_label_set_text(counter_, text);
+        lv_label_set_text(navigation_, "K2 上一首                 K1 下一首");
+        lv_label_set_text(help_, music_playing_ ? "长按 K1 暂停   ·   长按 K2 返回"
+                                                : "长按 K1 播放   ·   长按 K2 返回");
     }
     for (int i = 0; i < menu_.kPageCount; ++i)
         lv_obj_set_style_bg_color(dots_[i], lv_color_hex(i == menu_.selected ? 0x007AFF : 0xD1D1D6),
@@ -398,6 +430,8 @@ void BoxMenuDisplay::Navigate(box_menu::Action action) {
             ApplyBrightness();
         }
     }
+    if (previous.IsMusic() && music_action_)
+        music_action_(action);
     if (!previous.wifi_setup && menu_.wifi_setup && wifi_setup_callback_)
         wifi_setup_callback_();
     if (previous.volume != menu_.volume)
@@ -455,5 +489,32 @@ void BoxMenuDisplay::HideOta() {
         ota_panel_ = nullptr;
         ota_progress_ = nullptr;
         ota_bar_ = nullptr;
+    }
+}
+
+void BoxMenuDisplay::UpdateMusic() {
+    static const char* titles[] = {"Lacrimosa", "Pull The Trigger", "Titans"};
+    static const char* artists[] = {"Apashe", "Flux Pavilion / Maduk Remix",
+                                    "Razihel & Aero Chord"};
+    lv_label_set_text(music_title_, titles[music_track_]);
+    lv_label_set_text(music_artist_, artists[music_track_]);
+    char text[64];
+    snprintf(text, sizeof(text), "%02lu:%02lu / %02lu:%02lu", music_position_ / 60000,
+             music_position_ / 1000 % 60, music_duration_ / 60000, music_duration_ / 1000 % 60);
+    lv_label_set_text(music_time_, music_duration_ ? text : "未找到歌曲资源");
+    lv_bar_set_value(music_bar_, music_duration_ ? music_position_ * 1000 / music_duration_ : 0,
+                     LV_ANIM_OFF);
+}
+void BoxMenuDisplay::SetMusicStatus(int track, bool playing, uint32_t position, uint32_t duration) {
+    DisplayLockGuard lock(this);
+    const bool changed = music_track_ != track || music_playing_ != playing ||
+                         music_position_ / 1000 != position / 1000 || music_duration_ != duration;
+    music_track_ = track;
+    music_playing_ = playing;
+    music_position_ = position;
+    music_duration_ = duration;
+    if (changed && root_ && menu_.IsMusic()) {
+        UpdateMusic();
+        Render();
     }
 }

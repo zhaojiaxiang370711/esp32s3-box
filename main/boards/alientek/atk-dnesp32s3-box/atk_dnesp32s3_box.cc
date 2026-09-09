@@ -3,6 +3,7 @@
 #include <atomic>
 #include "application.h"
 #include "box_menu_display.h"
+#include "box_music.h"
 #include "box_ota.h"
 #include "button.h"
 #include "codecs/es8311_audio_codec.h"
@@ -158,6 +159,7 @@ private:
     Button boot_button_;
     BoxMenuDisplay* display_;
     BoxOta ota_;
+    BoxMusic music_;
     TaskHandle_t navigation_task_ = nullptr;
     XL9555_IN* xl9555_in_;
     bool es8311_detected_ = false;
@@ -344,6 +346,8 @@ public:
         xl9555_in_->SetOutputState(kLcdBacklightPin, 1);
         InitializeButtons();
         display_->OnWifiSetup([this]() { OpenWifiSetup(); });
+        display_->OnMusicAction([this](box_menu::Action action) { music_.Action(action); });
+        music_.Start(display_);
         const auto result = xTaskCreate(
             [](void* arg) { static_cast<atk_dnesp32s3_box*>(arg)->PollNavigationButtons(); },
             "box_keys", 3072, this, 3, &navigation_task_);

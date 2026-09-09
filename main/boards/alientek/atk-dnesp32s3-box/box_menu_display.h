@@ -10,6 +10,10 @@ class BoxMenuDisplay : public SpiLcdDisplay {
 public:
     using SpiLcdDisplay::SpiLcdDisplay;
     void SetupUI() override;
+    void OnMusicAction(std::function<void(box_menu::Action)> callback) {
+        music_action_ = std::move(callback);
+    }
+    void SetMusicStatus(int track, bool playing, uint32_t position, uint32_t duration);
     void ShowOta(int progress, bool failed = false);
     void HideOta();
     void Navigate(box_menu::Action action);
@@ -21,6 +25,16 @@ public:
 
 private:
     box_menu::State menu_;
+    std::function<void(box_menu::Action)> music_action_;
+    int music_track_ = 0;
+    bool music_playing_ = false;
+    uint32_t music_position_ = 0;
+    uint32_t music_duration_ = 0;
+    lv_obj_t* music_title_ = nullptr;
+    lv_obj_t* music_artist_ = nullptr;
+    lv_obj_t* music_time_ = nullptr;
+    lv_obj_t* music_bar_ = nullptr;
+    void UpdateMusic();
     lv_obj_t* ota_panel_ = nullptr;
     lv_obj_t* ota_progress_ = nullptr;
     lv_obj_t* ota_bar_ = nullptr;
