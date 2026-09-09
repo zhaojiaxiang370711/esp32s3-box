@@ -46,6 +46,10 @@ struct State {
     int setting = 0;
     bool editing = false;
     bool wifi_setup = false;
+    bool wifi_details = false;
+    bool wifi_confirm = false;
+    bool wifi_ap_active = false;
+    int wifi_choice = 0;
     static constexpr int kSettingCount = 3;
     int brightness = 100;
     int volume = 70;
@@ -57,8 +61,40 @@ struct State {
 
     void Apply(Action action) {
         if (wifi_setup) {
-            if (action == Action::Back)
+            if (action == Action::Back) {
                 wifi_setup = false;
+                wifi_details = true;
+                wifi_choice = 0;
+            }
+            return;
+        }
+        if (wifi_details) {
+            if (action == Action::Left || action == Action::Right)
+                wifi_choice = 1 - wifi_choice;
+            else if (action == Action::Back) {
+                if (wifi_confirm)
+                    wifi_confirm = false;
+                else
+                    wifi_details = false;
+                wifi_choice = 0;
+            } else if (action == Action::Enter) {
+                if (wifi_confirm) {
+                    if (wifi_choice == 1) {
+                        wifi_setup = true;
+                        wifi_details = false;
+                    }
+                    wifi_confirm = false;
+                    wifi_choice = 0;
+                } else if (wifi_choice == 1) {
+                    if (wifi_ap_active) {
+                        wifi_setup = true;
+                        wifi_details = false;
+                    } else
+                        wifi_confirm = true;
+                    wifi_choice = 0;
+                } else
+                    wifi_details = false;
+            }
             return;
         }
         if (IsSettings()) {
@@ -68,9 +104,10 @@ struct State {
                 else
                     entered = false;
             } else if (action == Action::Enter) {
-                if (setting == 2)
-                    wifi_setup = true;
-                else
+                if (setting == 2) {
+                    wifi_details = true;
+                    wifi_choice = 0;
+                } else
                     editing = !editing;
             } else if (!editing) {
                 setting =

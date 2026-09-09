@@ -164,6 +164,12 @@ private:
     std::atomic<bool> wifi_restart_requested_{false};
     std::atomic<bool> wifi_waiting_connection_{false};
 
+    void RefreshWifiStatus() {
+        auto& manager = WifiManager::GetInstance();
+        display_->SetWifiStatus(manager.IsConnected(), manager.IsConfigMode(), manager.GetSsid(),
+                                manager.GetIpAddress());
+    }
+
     void OpenWifiSetup() {
         wifi_restart_requested_ = true;
         if (IsInWifiConfigMode()) {
@@ -350,6 +356,7 @@ public:
     void SetNetworkEventCallback(NetworkEventCallback callback) override {
         WifiBoard::SetNetworkEventCallback(
             [this, callback = std::move(callback)](NetworkEvent event, const std::string& data) {
+                Application::GetInstance().Schedule([this]() { RefreshWifiStatus(); });
                 if (event == NetworkEvent::WifiConfigModeEnter) {
                     wifi_waiting_connection_ = false;
                     Application::GetInstance().Schedule([this]() {
@@ -362,6 +369,10 @@ public:
                            wifi_waiting_connection_.exchange(false) &&
                            wifi_restart_requested_.exchange(false)) {
                     Application::GetInstance().Schedule([]() {
+                        {
+                            Settings preferences("box_ui", true);
+                            preferences.SetBool("wifi_result", true);
+                        }
                         ESP_LOGI(TAG, "Wi-Fi configured and connected; restarting BOX");
                         esp_restart();
                     });

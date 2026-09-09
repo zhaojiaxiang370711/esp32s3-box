@@ -52,10 +52,22 @@ int main() {
     assert(!s.entered && s.selected == 4);
     s.Apply(Action::Enter);
     s.Apply(Action::Left); assert(s.setting == 2);
-    s.Apply(Action::Enter); assert(s.wifi_setup && !s.editing);
-    s.Apply(Action::Right); s.Apply(Action::Enter);
-    assert(s.wifi_setup && s.setting == 2 && s.volume == 100);
-    s.Apply(Action::Back); assert(!s.wifi_setup && s.IsSettings());
+    s.Apply(Action::Enter); assert(s.wifi_details && !s.wifi_setup && !s.editing);
+    s.Apply(Action::Enter); assert(!s.wifi_details && !s.wifi_setup); // Keep connection.
+    s.Apply(Action::Enter); s.Apply(Action::Right); s.Apply(Action::Enter);
+    assert(s.wifi_details && s.wifi_confirm && !s.wifi_setup && s.wifi_choice == 0);
+    s.Apply(Action::Enter); assert(!s.wifi_confirm && s.wifi_details); // Default is cancel.
+    s.Apply(Action::Right); s.Apply(Action::Enter); s.Apply(Action::Back);
+    assert(!s.wifi_confirm && s.wifi_details && !s.wifi_setup);
+    s.Apply(Action::Right); s.Apply(Action::Enter); s.Apply(Action::Right); s.Apply(Action::Enter);
+    assert(s.wifi_setup && !s.wifi_details && !s.wifi_confirm);
+    s.Apply(Action::Right); s.Apply(Action::Enter); assert(s.wifi_setup);
+    s.Apply(Action::Back); assert(!s.wifi_setup && s.wifi_details);
+    s.wifi_ap_active = true;
+    s.Apply(Action::Right); s.Apply(Action::Enter); // Existing AP: view instructions directly.
+    assert(s.wifi_setup && !s.wifi_confirm);
+    s.Apply(Action::Back); s.Apply(Action::Back);
+    assert(!s.wifi_details && s.IsSettings());
     s.Apply(Action::Right); assert(s.setting == 0);
     s.Apply(Action::Left); assert(s.setting == 2);
     s.Apply(Action::Back); assert(!s.entered && !s.wifi_setup);

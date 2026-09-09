@@ -36,9 +36,16 @@ void BoxMenuDisplay::SetupUI() {
     DisplayLockGuard lock(this);
     if (root_)
         return;
-    Settings preferences("box_ui");
+    Settings preferences("box_ui", true);
     Settings audio("audio");
     menu_.Load(preferences.GetInt("brightness", 100), audio.GetInt("output_volume", 70));
+    if (preferences.GetBool("wifi_result", false)) {
+        menu_.selected = menu_.kPageCount - 1;
+        menu_.entered = true;
+        menu_.setting = 2;
+        menu_.wifi_details = true;
+        preferences.SetBool("wifi_result", false);
+    }
     ESP_LOGI("BoxMenu", "Loaded brightness=%d volume=%d", menu_.brightness, menu_.volume);
     root_ = lv_obj_create(lv_display_get_layer_top(display_));
     lv_obj_remove_style_all(root_);
@@ -105,6 +112,24 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
         lv_obj_set_style_text_font(result, &box_menu_font_14, 0);
         return card;
     }
+    if (menu_.wifi_details) {
+        wifi_state_label_ = Label(card, 16, 8, 256, "");
+        lv_obj_set_style_text_font(wifi_state_label_, &box_menu_font_14, 0);
+        station_label_ = Label(card, 16, 30, 256, "");
+        lv_label_set_long_mode(station_label_, LV_LABEL_LONG_SCROLL_CIRCULAR);
+        station_ip_label_ = Label(card, 16, 60, 256, "");
+        lv_obj_set_style_text_font(station_ip_label_, &box_menu_font_14, 0);
+        for (int i = 0; i < 2; ++i) {
+            wifi_buttons_[i] = Label(card, 16 + i * 134, 88, 122, "");
+            lv_obj_set_style_text_font(wifi_buttons_[i], &box_menu_font_14, 0);
+            lv_obj_set_style_text_align(wifi_buttons_[i], LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_style_bg_opa(wifi_buttons_[i], LV_OPA_COVER, 0);
+            lv_obj_set_style_radius(wifi_buttons_[i], 7, 0);
+            lv_obj_set_style_pad_ver(wifi_buttons_[i], 3, 0);
+        }
+        UpdateWifiDetails();
+        return card;
+    }
     if (menu_.IsSettings()) {
         for (int i = 0; i < menu_.kSettingCount; ++i) {
             rows_[i] = lv_obj_create(card);
@@ -114,8 +139,8 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
             lv_obj_set_style_radius(rows_[i], 12, 0);
             lv_obj_set_style_bg_opa(rows_[i], LV_OPA_COVER, 0);
             lv_obj_set_style_border_width(rows_[i], 1, 0);
-            auto title = Label(rows_[i], 10, 2, 160,
-                               i == 0 ? "屏幕亮度" : (i == 1 ? "声音大小" : "Wi-Fi 配网"));
+            auto title =
+                Label(rows_[i], 10, 2, 160, i == 0 ? "屏幕亮度" : (i == 1 ? "声音大小" : "Wi-Fi"));
             lv_obj_set_style_text_font(title, &box_menu_font_14, 0);
             values_[i] = Label(rows_[i], 192, 2, 68, "");
             lv_obj_set_style_text_font(values_[i], &box_menu_font_14, 0);
@@ -186,8 +211,12 @@ void BoxMenuDisplay::Render() {
     if (menu_.wifi_setup) {
         lv_label_set_text(navigation_, "连接热点后，用浏览器打开地址");
         lv_label_set_text(help_, "长按 K2 返回   ·   热点保持开启");
+    } else if (menu_.wifi_details) {
+        lv_label_set_text(header_, menu_.wifi_confirm ? "切换 Wi-Fi" : "Wi-Fi 状态");
+        lv_label_set_text(navigation_, "短按 K2 / K1 选择按钮");
+        lv_label_set_text(help_, "长按 K1 确认   ·   长按 K2 返回");
     } else if (menu_.IsSettings() && menu_.setting == 2) {
-        lv_label_set_text(help_, "长按 K1 配网   ·   长按 K2 返回");
+        lv_label_set_text(help_, "长按 K1 查看   ·   长按 K2 返回");
     }
     for (int i = 0; i < menu_.kPageCount; ++i)
         lv_obj_set_style_bg_color(dots_[i], lv_color_hex(i == menu_.selected ? 0x007AFF : 0xD1D1D6),
@@ -237,7 +266,8 @@ void BoxMenuDisplay::UpdateSettings() {
             lv_color_hex(selected && menu_.editing ? 0x007AFF : (selected ? 0xBCD9FF : 0xFFFFFF)),
             0);
         if (i == 2) {
-            lv_label_set_text(values_[i], ">");
+            lv_label_set_text(
+                values_[i], wifi_configuring_ ? "配网中" : (wifi_connected_ ? "已连接" : "未连接"));
             continue;
         }
         char text[16];
@@ -246,6 +276,54 @@ void BoxMenuDisplay::UpdateSettings() {
         lv_label_set_text(values_[i], text);
         lv_bar_set_value(bars_[i], value, LV_ANIM_ON);
     }
+}
+void BoxMenuDisplay::UpdateWifiDetails() {
+    if (menu_.wifi_confirm) {
+        lv_label_set_text(wifi_state_label_, "是否开启热点重新配网？");
+        lv_label_set_text(station_label_, "切换 Wi-Fi");
+        lv_label_set_text(station_ip_label_,
+                          wifi_connected_ ? "确认后将断开当前网络" : "手机连接设备热点进行配置");
+        lv_label_set_text(wifi_buttons_[0], "取消");
+        lv_label_set_text(wifi_buttons_[1], "确认切换");
+    } else {
+        lv_label_set_text(wifi_state_label_,
+                          wifi_configuring_ ? "配网热点已开启"
+                                            : (wifi_connected_ ? "已连接 Wi-Fi" : "Wi-Fi 未连接"));
+        lv_label_set_text(station_label_,
+                          wifi_configuring_
+                              ? "等待手机配置"
+                              : (wifi_connected_ ? station_ssid_.c_str() : "暂无网络连接"));
+        std::string ip =
+            wifi_connected_ && !wifi_configuring_ ? "IP: " + station_ip_ : "可选择配网连接其他网络";
+        lv_label_set_text(station_ip_label_, ip.c_str());
+        lv_label_set_text(wifi_buttons_[0],
+                          wifi_connected_ && !wifi_configuring_ ? "保持连接" : "返回");
+        lv_label_set_text(wifi_buttons_[1], wifi_configuring_
+                                                ? "查看配网"
+                                                : (wifi_connected_ ? "切换 Wi-Fi" : "开始配网"));
+    }
+    for (int i = 0; i < 2; ++i) {
+        const bool selected = menu_.wifi_choice == i;
+        lv_obj_set_style_bg_color(wifi_buttons_[i], lv_color_hex(selected ? 0x007AFF : 0xEDF5FF),
+                                  0);
+        lv_obj_set_style_text_color(wifi_buttons_[i], lv_color_hex(selected ? 0xFFFFFF : 0x007AFF),
+                                    0);
+    }
+}
+void BoxMenuDisplay::SetWifiStatus(bool connected, bool configuring, const std::string& ssid,
+                                   const std::string& ip) {
+    DisplayLockGuard lock(this);
+    wifi_connected_ = connected;
+    wifi_configuring_ = configuring;
+    menu_.wifi_ap_active = configuring;
+    station_ssid_ = ssid;
+    station_ip_ = ip;
+    if (!root_)
+        return;
+    if (menu_.wifi_details)
+        UpdateWifiDetails();
+    else if (menu_.IsSettings() && !menu_.wifi_setup)
+        UpdateSettings();
 }
 void BoxMenuDisplay::SetWifiInfo(const std::string& ssid, const std::string& url) {
     DisplayLockGuard lock(this);
@@ -264,9 +342,12 @@ void BoxMenuDisplay::Navigate(box_menu::Action action) {
         if (root_) {
             Render();
             if (previous.selected != menu_.selected || previous.entered != menu_.entered ||
-                previous.wifi_setup != menu_.wifi_setup) {
+                previous.wifi_setup != menu_.wifi_setup ||
+                previous.wifi_details != menu_.wifi_details) {
                 Transition(
                     action == box_menu::Action::Left || action == box_menu::Action::Back ? -1 : 1);
+            } else if (menu_.wifi_details) {
+                UpdateWifiDetails();
             } else if (menu_.IsSettings() && !menu_.wifi_setup) {
                 UpdateSettings();
             }

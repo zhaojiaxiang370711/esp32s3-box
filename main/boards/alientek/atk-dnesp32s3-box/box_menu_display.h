@@ -13,6 +13,8 @@ public:
     void Navigate(box_menu::Action action);
     ~BoxMenuDisplay() override;
     void OnWifiSetup(std::function<void()> callback) { wifi_setup_callback_ = std::move(callback); }
+    void SetWifiStatus(bool connected, bool configuring, const std::string& ssid,
+                       const std::string& ip);
     void SetWifiInfo(const std::string& ssid, const std::string& url);
 
 private:
@@ -29,6 +31,15 @@ private:
     lv_obj_t* values_[3] = {};
     lv_obj_t* bars_[2] = {};
     std::function<void()> wifi_setup_callback_;
+    bool wifi_connected_ = false;
+    bool wifi_configuring_ = false;
+    std::string station_ssid_;
+    std::string station_ip_;
+    lv_obj_t* wifi_state_label_ = nullptr;
+    lv_obj_t* station_label_ = nullptr;
+    lv_obj_t* station_ip_label_ = nullptr;
+    lv_obj_t* wifi_buttons_[2] = {};
+    void UpdateWifiDetails();
     std::string wifi_ssid_;
     std::string wifi_url_;
     lv_obj_t* wifi_ssid_label_ = nullptr;
