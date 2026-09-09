@@ -60,6 +60,6 @@ idf.py -p YOUR_SERIAL_PORT flash
 ## 仓库
 
 - GitHub：https://github.com/zhaojiaxiang370711/esp32s3-box
-- NAS Gitea：https://git.ainotex.com/x/esp32s3-box
+- NAS Gitea：私有备份仓库，仅授权用户可访问。
 
 公开仓库采用当前精简代码快照作为初始提交，完整上游历史见原项目。
