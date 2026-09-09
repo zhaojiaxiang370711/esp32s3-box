@@ -338,6 +338,8 @@ void BoxMenuDisplay::Navigate(box_menu::Action action) {
     const auto previous = menu_;
     {
         DisplayLockGuard lock(this);
+        if (ota_panel_)
+            return;
         menu_.Apply(action);
         if (root_) {
             Render();
@@ -374,4 +376,42 @@ BoxMenuDisplay::~BoxMenuDisplay() {
         lv_obj_delete(dimmer_);
     if (root_)
         lv_obj_delete(root_);
+}
+
+void BoxMenuDisplay::ShowOta(int progress, bool failed) {
+    DisplayLockGuard lock(this);
+    if (!root_)
+        return;
+    if (!ota_panel_) {
+        ota_panel_ = lv_obj_create(root_);
+        lv_obj_remove_style_all(ota_panel_);
+        lv_obj_set_size(ota_panel_, width_, height_);
+        lv_obj_set_style_bg_color(ota_panel_, lv_color_hex(0xF2F2F7), 0);
+        lv_obj_set_style_bg_opa(ota_panel_, LV_OPA_COVER, 0);
+        lv_obj_remove_flag(ota_panel_, LV_OBJ_FLAG_SCROLLABLE);
+        Label(ota_panel_, 24, 36, 272, "系统更新");
+        ota_progress_ = Label(ota_panel_, 24, 82, 272, "");
+        lv_obj_set_style_text_font(ota_progress_, &box_menu_font_14, 0);
+        ota_bar_ = lv_bar_create(ota_panel_);
+        lv_obj_set_pos(ota_bar_, 24, 126);
+        lv_obj_set_size(ota_bar_, 272, 8);
+        lv_obj_set_style_bg_color(ota_bar_, lv_color_hex(0x007AFF), LV_PART_INDICATOR);
+        auto hint = Label(ota_panel_, 24, 168, 272, "更新时请保持供电");
+        lv_obj_set_style_text_font(hint, &box_menu_font_14, 0);
+    }
+    char text[80];
+    snprintf(text, sizeof(text), "正在下载固件  %d%%", progress);
+    lv_label_set_text(ota_progress_, failed            ? "更新失败，将返回菜单"
+                                     : progress == 100 ? "校验完成，正在重启"
+                                                       : text);
+    lv_bar_set_value(ota_bar_, progress, LV_ANIM_OFF);
+}
+void BoxMenuDisplay::HideOta() {
+    DisplayLockGuard lock(this);
+    if (ota_panel_) {
+        lv_obj_delete(ota_panel_);
+        ota_panel_ = nullptr;
+        ota_progress_ = nullptr;
+        ota_bar_ = nullptr;
+    }
 }

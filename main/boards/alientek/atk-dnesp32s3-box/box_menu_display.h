@@ -10,6 +10,8 @@ class BoxMenuDisplay : public SpiLcdDisplay {
 public:
     using SpiLcdDisplay::SpiLcdDisplay;
     void SetupUI() override;
+    void ShowOta(int progress, bool failed = false);
+    void HideOta();
     void Navigate(box_menu::Action action);
     ~BoxMenuDisplay() override;
     void OnWifiSetup(std::function<void()> callback) { wifi_setup_callback_ = std::move(callback); }
@@ -19,6 +21,9 @@ public:
 
 private:
     box_menu::State menu_;
+    lv_obj_t* ota_panel_ = nullptr;
+    lv_obj_t* ota_progress_ = nullptr;
+    lv_obj_t* ota_bar_ = nullptr;
     lv_obj_t* root_ = nullptr;
     lv_obj_t* header_ = nullptr;
     lv_obj_t* counter_ = nullptr;

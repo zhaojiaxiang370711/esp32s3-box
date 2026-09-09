@@ -571,3 +571,8 @@ if ("${size}" AND "${offset}")
 else()
     message(STATUS "Assets partition not found, using v1 partition table")
 endif()
+
+# Optional private OTA credential header; never put device credentials in Git.
+if(BOARD_DIR STREQUAL "alientek/atk-dnesp32s3-box" AND DEFINED ENV{BOX_OTA_PRIVATE_DIR})
+    target_include_directories(${COMPONENT_LIB} PRIVATE "$ENV{BOX_OTA_PRIVATE_DIR}")
+endif()

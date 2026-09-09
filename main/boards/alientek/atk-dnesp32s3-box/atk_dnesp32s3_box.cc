@@ -3,6 +3,7 @@
 #include <atomic>
 #include "application.h"
 #include "box_menu_display.h"
+#include "box_ota.h"
 #include "button.h"
 #include "codecs/es8311_audio_codec.h"
 #include "codecs/no_audio_codec.h"
@@ -156,6 +157,7 @@ private:
     i2c_master_dev_handle_t xl9555_handle_;
     Button boot_button_;
     BoxMenuDisplay* display_;
+    BoxOta ota_;
     TaskHandle_t navigation_task_ = nullptr;
     XL9555_IN* xl9555_in_;
     bool es8311_detected_ = false;
@@ -380,7 +382,7 @@ public:
                 }
                 if (event == NetworkEvent::Connected) {
                     // This BOX is a standalone menu device: do not launch cloud activation/OTA.
-                    Application::GetInstance().Schedule([]() {
+                    Application::GetInstance().Schedule([this]() {
                         auto& app = Application::GetInstance();
                         // No speech models are needed by this standalone menu.
                         static srmodel_list_t no_speech_models{};
@@ -391,6 +393,7 @@ public:
                             app.SetDeviceState(kDeviceStateIdle);
                         }
                         ESP_LOGI(TAG, "BOX Wi-Fi connected; local menu ready");
+                        ota_.Start(display_);
                     });
                     return;
                 }
