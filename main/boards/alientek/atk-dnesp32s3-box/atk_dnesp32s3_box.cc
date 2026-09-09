@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <atomic>
 #include "application.h"
+#include "box_audio_samples.h"
 #include "box_menu_display.h"
 #include "box_music.h"
 #include "box_ota.h"
@@ -83,7 +84,21 @@ public:
         };
         ESP_ERROR_CHECK(i2s_channel_init_std_mode(tx_handle_, &std_cfg));
         ESP_ERROR_CHECK(i2s_channel_init_std_mode(rx_handle_, &std_cfg));
-        ESP_LOGI(TAG, "Duplex channels created");
+        ESP_LOGI(TAG, "Duplex channels created; output=16-bit stereo, duplicated mono");
+    }
+
+protected:
+    int Write(const int16_t* data, int samples) override {
+        if (samples <= 0)
+            return 0;
+        std::lock_guard<std::mutex> lock(data_if_mutex_);
+        std::vector<int16_t> stereo(static_cast<size_t>(samples) * 2);
+        box_audio::PackStereo(data, stereo.data(), samples, output_volume_);
+        size_t bytes_written = 0;
+        ESP_ERROR_CHECK(i2s_channel_write(tx_handle_, stereo.data(),
+                                          stereo.size() * sizeof(int16_t), &bytes_written,
+                                          portMAX_DELAY));
+        return bytes_written / (2 * sizeof(int16_t));
     }
 };
 
