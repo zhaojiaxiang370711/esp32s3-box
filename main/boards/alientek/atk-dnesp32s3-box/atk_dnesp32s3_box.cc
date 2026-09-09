@@ -1,4 +1,6 @@
+#include <esp_system.h>
 #include <algorithm>
+#include <atomic>
 #include "application.h"
 #include "box_menu_display.h"
 #include "button.h"
@@ -10,6 +12,7 @@
 #include "led/single_led.h"
 #include "settings.h"
 #include "wifi_board.h"
+#include "wifi_manager.h"
 
 #include <esp_log.h>
 #include <driver/i2c_master.h>
@@ -158,6 +161,19 @@ private:
     bool es8311_detected_ = false;
     static constexpr uint8_t kLcdBacklightPin = 7;
     bool screen_enabled_ = true;
+    std::atomic<bool> wifi_restart_requested_{false};
+    std::atomic<bool> wifi_waiting_connection_{false};
+
+    void OpenWifiSetup() {
+        wifi_restart_requested_ = true;
+        if (IsInWifiConfigMode()) {
+            auto& manager = WifiManager::GetInstance();
+            display_->SetWifiInfo(manager.GetApSsid(), manager.GetApWebUrl());
+        } else {
+            display_->SetWifiInfo("", "");
+            EnterWifiConfigMode();
+        }
+    }
 
     void InitializeI2c() {
         // Initialize I2C peripheral
@@ -319,6 +335,7 @@ public:
         xl9555_in_->SetOutputState(5, 1);
         xl9555_in_->SetOutputState(kLcdBacklightPin, 1);
         InitializeButtons();
+        display_->OnWifiSetup([this]() { OpenWifiSetup(); });
         const auto result = xTaskCreate(
             [](void* arg) { static_cast<atk_dnesp32s3_box*>(arg)->PollNavigationButtons(); },
             "box_keys", 3072, this, 3, &navigation_task_);
@@ -328,6 +345,47 @@ public:
     ~atk_dnesp32s3_box() override {
         if (navigation_task_)
             vTaskDelete(navigation_task_);
+    }
+
+    void SetNetworkEventCallback(NetworkEventCallback callback) override {
+        WifiBoard::SetNetworkEventCallback(
+            [this, callback = std::move(callback)](NetworkEvent event, const std::string& data) {
+                if (event == NetworkEvent::WifiConfigModeEnter) {
+                    wifi_waiting_connection_ = false;
+                    Application::GetInstance().Schedule([this]() {
+                        auto& manager = WifiManager::GetInstance();
+                        display_->SetWifiInfo(manager.GetApSsid(), manager.GetApWebUrl());
+                    });
+                } else if (event == NetworkEvent::WifiConfigModeExit && wifi_restart_requested_) {
+                    wifi_waiting_connection_ = true;
+                } else if (event == NetworkEvent::Connected &&
+                           wifi_waiting_connection_.exchange(false) &&
+                           wifi_restart_requested_.exchange(false)) {
+                    Application::GetInstance().Schedule([]() {
+                        ESP_LOGI(TAG, "Wi-Fi configured and connected; restarting BOX");
+                        esp_restart();
+                    });
+                    return;
+                }
+                if (event == NetworkEvent::Connected) {
+                    // This BOX is a standalone menu device: do not launch cloud activation/OTA.
+                    Application::GetInstance().Schedule([]() {
+                        auto& app = Application::GetInstance();
+                        // No speech models are needed by this standalone menu.
+                        static srmodel_list_t no_speech_models{};
+                        app.GetAudioService().SetModelsList(&no_speech_models);
+                        const auto state = app.GetDeviceState();
+                        if (state == kDeviceStateStarting || state == kDeviceStateWifiConfiguring) {
+                            app.SetDeviceState(kDeviceStateActivating);
+                            app.SetDeviceState(kDeviceStateIdle);
+                        }
+                        ESP_LOGI(TAG, "BOX Wi-Fi connected; local menu ready");
+                    });
+                    return;
+                }
+                if (callback)
+                    callback(event, data);
+            });
     }
 
     virtual AudioCodec* GetAudioCodec() override {

@@ -45,6 +45,8 @@ struct State {
     bool entered = false;
     int setting = 0;
     bool editing = false;
+    bool wifi_setup = false;
+    static constexpr int kSettingCount = 3;
     int brightness = 100;
     int volume = 70;
     bool IsSettings() const { return entered && selected == kPageCount - 1; }
@@ -54,6 +56,11 @@ struct State {
     }
 
     void Apply(Action action) {
+        if (wifi_setup) {
+            if (action == Action::Back)
+                wifi_setup = false;
+            return;
+        }
         if (IsSettings()) {
             if (action == Action::Back) {
                 if (editing)
@@ -61,9 +68,13 @@ struct State {
                 else
                     entered = false;
             } else if (action == Action::Enter) {
-                editing = !editing;
+                if (setting == 2)
+                    wifi_setup = true;
+                else
+                    editing = !editing;
             } else if (!editing) {
-                setting = 1 - setting;
+                setting =
+                    (setting + (action == Action::Left ? kSettingCount - 1 : 1)) % kSettingCount;
             } else {
                 const int step = action == Action::Left ? -10 : 10;
                 if (setting == 0)

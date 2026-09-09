@@ -34,4 +34,5 @@ class BoxFontTests(unittest.TestCase):
         _, small = glyphs(14)
         _, title = glyphs(20)
         self.assertLessEqual(214 + small, 240 - 4)
-        self.assertLessEqual(4 + title, 37 - 4)
+        self.assertLessEqual(2 + small, 26 - 4)
+        self.assertLessEqual(31 + title, 65 - 4)

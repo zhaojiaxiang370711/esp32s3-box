@@ -50,6 +50,15 @@ int main() {
     assert(!s.editing && s.IsSettings());
     s.Apply(Action::Back);
     assert(!s.entered && s.selected == 4);
+    s.Apply(Action::Enter);
+    s.Apply(Action::Left); assert(s.setting == 2);
+    s.Apply(Action::Enter); assert(s.wifi_setup && !s.editing);
+    s.Apply(Action::Right); s.Apply(Action::Enter);
+    assert(s.wifi_setup && s.setting == 2 && s.volume == 100);
+    s.Apply(Action::Back); assert(!s.wifi_setup && s.IsSettings());
+    s.Apply(Action::Right); assert(s.setting == 0);
+    s.Apply(Action::Left); assert(s.setting == 2);
+    s.Apply(Action::Back); assert(!s.entered && !s.wifi_setup);
     s.Load(-9, 999); assert(s.brightness == 10 && s.volume == 100);
     s.Load(999, -9); assert(s.brightness == 100 && s.volume == 0);
     s.Load(40, 30); assert(s.brightness == 40 && s.volume == 30);

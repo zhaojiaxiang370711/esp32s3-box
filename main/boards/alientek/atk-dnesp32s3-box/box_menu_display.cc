@@ -92,22 +92,39 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
     lv_obj_set_style_shadow_width(card, 10, 0);
     lv_obj_set_style_shadow_offset_y(card, 3, 0);
     lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+    if (menu_.wifi_setup) {
+        auto hint = Label(card, 16, 8, 256, "手机连接设备热点");
+        lv_obj_set_style_text_font(hint, &box_menu_font_14, 0);
+        wifi_ssid_label_ =
+            Label(card, 16, 31, 256, wifi_ssid_.empty() ? "正在开启热点..." : wifi_ssid_.c_str());
+        wifi_url_label_ =
+            Label(card, 16, 65, 256, wifi_url_.empty() ? "请稍候" : wifi_url_.c_str());
+        lv_obj_set_style_text_font(wifi_url_label_, &box_menu_font_14, 0);
+        lv_obj_set_style_text_color(wifi_url_label_, lv_color_hex(0x007AFF), 0);
+        auto result = Label(card, 16, 94, 256, "配置成功后自动重启");
+        lv_obj_set_style_text_font(result, &box_menu_font_14, 0);
+        return card;
+    }
     if (menu_.IsSettings()) {
-        for (int i = 0; i < 2; ++i) {
+        for (int i = 0; i < menu_.kSettingCount; ++i) {
             rows_[i] = lv_obj_create(card);
             lv_obj_remove_style_all(rows_[i]);
-            lv_obj_set_pos(rows_[i], 8, 6 + i * 56);
-            lv_obj_set_size(rows_[i], 272, 54);
+            lv_obj_set_pos(rows_[i], 8, 4 + i * 38);
+            lv_obj_set_size(rows_[i], 272, 36);
             lv_obj_set_style_radius(rows_[i], 12, 0);
             lv_obj_set_style_bg_opa(rows_[i], LV_OPA_COVER, 0);
             lv_obj_set_style_border_width(rows_[i], 1, 0);
-            Label(rows_[i], 10, 4, 160, i == 0 ? "屏幕亮度" : "声音大小");
-            values_[i] = Label(rows_[i], 192, 8, 68, "");
+            auto title = Label(rows_[i], 10, 2, 160,
+                               i == 0 ? "屏幕亮度" : (i == 1 ? "声音大小" : "Wi-Fi 配网"));
+            lv_obj_set_style_text_font(title, &box_menu_font_14, 0);
+            values_[i] = Label(rows_[i], 192, 2, 68, "");
             lv_obj_set_style_text_font(values_[i], &box_menu_font_14, 0);
             lv_obj_set_style_text_align(values_[i], LV_TEXT_ALIGN_RIGHT, 0);
+            if (i == 2)
+                continue;
             bars_[i] = lv_bar_create(rows_[i]);
-            lv_obj_set_pos(bars_[i], 12, 37);
-            lv_obj_set_size(bars_[i], 248, 6);
+            lv_obj_set_pos(bars_[i], 12, 26);
+            lv_obj_set_size(bars_[i], 248, 4);
             lv_bar_set_range(bars_[i], 0, 100);
             lv_obj_set_style_bg_color(bars_[i], lv_color_hex(0xE5E5EA), LV_PART_MAIN);
             lv_obj_set_style_bg_color(bars_[i], lv_color_hex(0x007AFF), LV_PART_INDICATOR);
@@ -135,7 +152,7 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
     Label(card, 76, 18, 194, text);
     auto subtitle = Label(card, 76, 47, 194,
                           menu_.selected == menu_.kPageCount - 1
-                              ? "屏幕亮度与声音大小"
+                              ? "显示、声音与无线网络"
                               : (menu_.entered ? "已进入测试页面" : "探索你的新功能"));
     lv_obj_set_style_text_font(subtitle, &box_menu_font_14, 0);
     lv_obj_set_style_text_color(subtitle, lv_color_hex(0x86868B), 0);
@@ -151,8 +168,10 @@ lv_obj_t* BoxMenuDisplay::CreateCard() {
 }
 void BoxMenuDisplay::Render() {
     char text[24];
-    lv_label_set_text(header_,
-                      menu_.IsSettings() ? "设置" : (menu_.entered ? "功能页面" : "主功能"));
+    lv_label_set_text(
+        header_, menu_.wifi_setup
+                     ? "Wi-Fi 配网"
+                     : (menu_.IsSettings() ? "设置" : (menu_.entered ? "功能页面" : "主功能")));
     std::snprintf(text, sizeof(text), "%d / %d", menu_.selected + 1, menu_.kPageCount);
     lv_label_set_text(counter_, text);
     lv_label_set_text(navigation_, menu_.entered ? "长按 K2 回到主功能"
@@ -163,6 +182,12 @@ void BoxMenuDisplay::Render() {
                           menu_.editing ? "K2 减小                 K1 增大" : "K2 / K1 选择设置项");
         lv_label_set_text(help_, menu_.editing ? "长按 K1 保存   ·   长按 K2 返回"
                                                : "长按 K1 调节   ·   长按 K2 返回");
+    }
+    if (menu_.wifi_setup) {
+        lv_label_set_text(navigation_, "连接热点后，用浏览器打开地址");
+        lv_label_set_text(help_, "长按 K2 返回   ·   热点保持开启");
+    } else if (menu_.IsSettings() && menu_.setting == 2) {
+        lv_label_set_text(help_, "长按 K1 配网   ·   长按 K2 返回");
     }
     for (int i = 0; i < menu_.kPageCount; ++i)
         lv_obj_set_style_bg_color(dots_[i], lv_color_hex(i == menu_.selected ? 0x007AFF : 0xD1D1D6),
@@ -204,18 +229,31 @@ void BoxMenuDisplay::ApplyBrightness() {
         lv_obj_set_style_bg_opa(dimmer_, (100 - menu_.brightness) * 255 / 100, 0);
 }
 void BoxMenuDisplay::UpdateSettings() {
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < menu_.kSettingCount; ++i) {
         const bool selected = menu_.setting == i;
         lv_obj_set_style_bg_color(rows_[i], lv_color_hex(selected ? 0xEDF5FF : 0xFFFFFF), 0);
         lv_obj_set_style_border_color(
             rows_[i],
             lv_color_hex(selected && menu_.editing ? 0x007AFF : (selected ? 0xBCD9FF : 0xFFFFFF)),
             0);
+        if (i == 2) {
+            lv_label_set_text(values_[i], ">");
+            continue;
+        }
         char text[16];
         const int value = i == 0 ? menu_.brightness : menu_.volume;
         std::snprintf(text, sizeof(text), "%d%%", value);
         lv_label_set_text(values_[i], text);
         lv_bar_set_value(bars_[i], value, LV_ANIM_ON);
+    }
+}
+void BoxMenuDisplay::SetWifiInfo(const std::string& ssid, const std::string& url) {
+    DisplayLockGuard lock(this);
+    wifi_ssid_ = ssid;
+    wifi_url_ = url;
+    if (menu_.wifi_setup && root_) {
+        lv_label_set_text(wifi_ssid_label_, ssid.empty() ? "正在开启热点..." : ssid.c_str());
+        lv_label_set_text(wifi_url_label_, url.empty() ? "请稍候" : url.c_str());
     }
 }
 void BoxMenuDisplay::Navigate(box_menu::Action action) {
@@ -225,15 +263,18 @@ void BoxMenuDisplay::Navigate(box_menu::Action action) {
         menu_.Apply(action);
         if (root_) {
             Render();
-            if (previous.selected != menu_.selected || previous.entered != menu_.entered) {
+            if (previous.selected != menu_.selected || previous.entered != menu_.entered ||
+                previous.wifi_setup != menu_.wifi_setup) {
                 Transition(
                     action == box_menu::Action::Left || action == box_menu::Action::Back ? -1 : 1);
-            } else if (menu_.IsSettings()) {
+            } else if (menu_.IsSettings() && !menu_.wifi_setup) {
                 UpdateSettings();
             }
             ApplyBrightness();
         }
     }
+    if (!previous.wifi_setup && menu_.wifi_setup && wifi_setup_callback_)
+        wifi_setup_callback_();
     if (previous.volume != menu_.volume)
         Board::GetInstance().GetAudioCodec()->SetOutputVolume(menu_.volume);
     if (previous.editing && !menu_.editing) {

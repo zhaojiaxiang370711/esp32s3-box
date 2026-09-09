@@ -1,4 +1,6 @@
 #pragma once
+#include <functional>
+#include <string>
 
 #include "box_menu_state.h"
 #include "display/lcd_display.h"
@@ -10,6 +12,8 @@ public:
     void SetupUI() override;
     void Navigate(box_menu::Action action);
     ~BoxMenuDisplay() override;
+    void OnWifiSetup(std::function<void()> callback) { wifi_setup_callback_ = std::move(callback); }
+    void SetWifiInfo(const std::string& ssid, const std::string& url);
 
 private:
     box_menu::State menu_;
@@ -21,9 +25,14 @@ private:
     lv_obj_t* navigation_ = nullptr;
     lv_obj_t* help_ = nullptr;
     lv_obj_t* dimmer_ = nullptr;
-    lv_obj_t* rows_[2] = {};
-    lv_obj_t* values_[2] = {};
+    lv_obj_t* rows_[3] = {};
+    lv_obj_t* values_[3] = {};
     lv_obj_t* bars_[2] = {};
+    std::function<void()> wifi_setup_callback_;
+    std::string wifi_ssid_;
+    std::string wifi_url_;
+    lv_obj_t* wifi_ssid_label_ = nullptr;
+    lv_obj_t* wifi_url_label_ = nullptr;
     void UpdateSettings();
     void ApplyBrightness();
     lv_obj_t* dots_[box_menu::State::kPageCount] = {};
